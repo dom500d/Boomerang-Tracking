@@ -26,7 +26,7 @@ def nothing(x):
     pass
 
 def get_mask(image):
-    cv.namedWindow('image')
+    cv.namedWindow('image', cv.WINDOW_NORMAL)
     cv.createTrackbar('HMin', 'image', 0, 179, nothing)
     cv.createTrackbar('SMin', 'image', 0, 255, nothing)
     cv.createTrackbar('VMin', 'image', 0, 255, nothing)
@@ -70,17 +70,6 @@ def get_mask(image):
             break
     cv.destroyAllWindows()
 
-orange = np.uint8([[[246, 163, 108]]]) #here insert the bgr values which you want to convert to hsv
-hsvGreen = cv.cvtColor(orange, cv.COLOR_BGR2HSV)
-print(hsvGreen)
-
-lowerLimit = hsvGreen[0][0][0] - 10, 100, 100
-upperLimit = hsvGreen[0][0][0] + 10, 255, 255
-
-print(upperLimit)
-print(lowerLimit)
-
-
 
 for filename in listdir("E:/Image Tracking/videos/"):
     if filename.endswith(".MP4") or filename.endswith(".mp4"):
@@ -109,6 +98,13 @@ for filename in listdir("E:/Image Tracking/videos/"):
             if not ret:
                 print('No frames grabbed!')
                 break
+           
+            # hsv1 = cv.cvtColor(frame2, cv.COLOR_BGR2HSV)
+            # lower = np.array([0, 0, 0])
+            # upper = np.array([41, 255, 175])
+            # mask = cv.inRange(hsv1, lower, upper)
+            # result = hsv1[mask>0] = (0, 0, 255)
+            # #cv.imshow('Window', mask)
             next = cv.cvtColor(frame2, cv.COLOR_BGR2GRAY)
             flow = cv.calcOpticalFlowFarneback(
                 prvs, next, None, 0.5, 3, 15, 3, 5, 1.2, 0)
@@ -117,28 +113,31 @@ for filename in listdir("E:/Image Tracking/videos/"):
             hsv[..., 2] = cv.normalize(mag, None, 0, 255, cv.NORM_MINMAX)
             bgr = cv.cvtColor(hsv, cv.COLOR_HSV2BGR)
             bgr1 = cv.cvtColor(bgr, cv.COLOR_BGR2GRAY)
-            x, bgr2 = cv.threshold(bgr1, 25, 255, cv.THRESH_BINARY)
+            x, bgr2 = cv.threshold(bgr1, 35, 255, cv.THRESH_BINARY)
+            #cv.imshow('Window', bgr2)
             contours, hierarchy = cv.findContours(
                 bgr2, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
             goodcontours = []
             for c in contours:
-                if cv.contourArea(c) > 40:
+                if cv.contourArea(c) > 50:
                     x, y, w, h = cv.boundingRect(c)
                     cut_image = frame2[y:y+h, x:x+w]
                     cut_image1 = cv.cvtColor(cut_image, cv.COLOR_BGR2HSV)
-                    result = cut_image.copy()
-                    image = cut_image1
-                    lower = np.array([20, 25, 0])
-                    upper = np.array([179, 255, 255])
-                    mask = cv.inRange(image, lower, upper)
-                    result = cv.bitwise_and(result, result, mask=mask)
-                    #cv.imshow('Window',result)
-                    mean = np.array(cv.mean(result)).astype(np.uint8)
-
-                    if mean.nonzero()[0].size != 0:
+                    lower = np.array([0, 0, 0])
+                    upper = np.array([41, 255, 175])
+                    mask = cv.inRange(cut_image1, lower, upper)
+                    result = mask
+                    #cv.imshow('Window', mask)
+                    result = cv.bitwise_and(cut_image1, cut_image1, mask=mask)
+                    result = cv.cvtColor(result, cv.COLOR_HSV2RGB)
+                    mean = np.average(result[:, :, 0]).astype(np.uint8)
+                    #cv.imshow('Window', result)
+                    if mean != 0:
                         cv.rectangle(frame2, (x, y), (x+w, y+h), (0, 255, 0), 2)
                         centers.append((x, y))
                         goodcontours.append(c)
+            #frame4 = cv.COLOR_BGR2HSV(frame2)
+            #cv.imshow('Window', masked)
             cv.drawContours(frame2, goodcontours, -1, (0, 255, 0), 3)
             cv.imshow('Window', frame2)
             # dense_flow = cv.addWeighted(frame2, 1, bgr, 2, 0)
