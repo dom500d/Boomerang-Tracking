@@ -79,33 +79,95 @@ for filename in listdir("E:/Image Tracking/videos/"):
         cv.namedWindow('Window', cv.WINDOW_NORMAL)
         cap = cv.VideoCapture(f"videos/{filename}")
         ret, frame1 = cap.read()
-        prvs = cv.cvtColor(frame1, cv.COLOR_BGR2GRAY)
+        bgr_inv = ~frame1
+        hsv_inv = cv.cvtColor(bgr_inv, cv.COLOR_BGR2HSV);
+        mask = cv.inRange(hsv_inv, np.array([90 - 10, 70, 50]), np.array([90 + 10, 255, 255]))
+        final = cv.bitwise_and(frame1, frame1, mask=mask)
+        prvs = cv.cvtColor(frame1, cv.COLOR_HSV2BGR)
+        prvs = cv.cvtColor(prvs, cv.COLOR_BGR2GRAY)
         cv.setMouseCallback('Window', select_points)
         cv.imshow('Window', frame1)
         k = cv.waitKey(0) & 0xff
         if k == 27:
             distance = math.dist((ix[1], iy[1]), (ix[0], iy[0]))
 
+#         feature_params = dict( maxCorners = 100,
+#                        qualityLevel = 0.3,
+#                        minDistance = 7,
+#                        blockSize = 7 )
+# # Parameters for lucas kanade optical flow
+#         lk_params = dict( winSize  = (15, 15),
+#                   maxLevel = 2,
+#                   criteria = (cv.TERM_CRITERIA_EPS | cv.TERM_CRITERIA_COUNT, 10, 0.03))
+
+
+#         p0 = cv.goodFeaturesToTrack(prvs, mask = None, **feature_params)
+
         worlddistance = 21
         #get_mask(frame1)
-
         hsv = np.zeros_like(frame1)
         hsv[..., 1] = 255
-        badmask = np.ones(frame1.shape[:2], dtype="uint8") * 255
         centers = []
+
+
+        # mask1 = np.zeros_like(frame1)
+
+
         while (1):
             ret, frame2 = cap.read()
             if not ret:
                 print('No frames grabbed!')
                 break
-           
-            # hsv1 = cv.cvtColor(frame2, cv.COLOR_BGR2HSV)
+
+            bgr_inv = ~frame2
+            hsv_inv = cv.cvtColor(bgr_inv, cv.COLOR_BGR2HSV);
+            mask = cv.inRange(hsv_inv, np.array([90 - 10, 70, 50]), np.array([90 + 10, 255, 255]))
+            final = cv.bitwise_and(frame2, frame2, mask=mask)
+
+            # Lab colorspace filtering
+            # lab = cv.cvtColor(frame2, cv.COLOR_BGR2LAB)
+            # th = cv.threshold(lab[:,:,1], 127, 255, cv.THRESH_BINARY + cv.THRESH_OTSU)[1]
+            # cv.imshow('Window', th)
+            
+            # Normal HSV colorspace filtering
+            # frame3 = cv.cvtColor(frame2, cv.COLOR_BGR2HSV)
             # lower = np.array([0, 0, 0])
             # upper = np.array([41, 255, 175])
-            # mask = cv.inRange(hsv1, lower, upper)
-            # result = hsv1[mask>0] = (0, 0, 255)
-            # #cv.imshow('Window', mask)
-            next = cv.cvtColor(frame2, cv.COLOR_BGR2GRAY)
+            # mask = cv.inRange(frame3, lower, upper)
+            # cv.imshow('Window', mask)
+
+
+            # je = cv.cvtColor(mask, cv.COLOR_HSV2BGR)
+            # next = cv.cvtColor(je, cv.COLOR_BGR2GRAY)
+            next = cv.cvtColor(final, cv.COLOR_HSV2BGR)
+            next = cv.cvtColor(next, cv.COLOR_BGR2GRAY)
+
+
+
+
+            # p1, st, err = cv.calcOpticalFlowPyrLK(prvs, next, p0, None, **lk_params)
+            # color = np.random.randint(0, 255, (100, 3))
+
+
+            # if p1 is not None:
+            #     good_new = p1[st==1]
+            #     good_old = p0[st==1]
+            # # draw the tracks
+            # for i, (new, old) in enumerate(zip(good_new, good_old)):
+            #     a, b = new.ravel()
+            #     c, d = old.ravel()
+            #     mask1 = cv.line(mask1, (int(a), int(b)), (int(c), int(d)), color[i].tolist(), 2)
+            #     frame = cv.circle(frame2, (int(a), int(b)), 5, color[i].tolist(), -1)
+            # img = cv.add(frame, mask1)
+            # cv.imshow('Window', img)
+            # k = cv.waitKey(30) & 0xff
+            # if k == 27:
+            #     break
+            # # Now update the previous frame and previous points
+            # prvs = next.copy()
+            # p0 = good_new.reshape(-1, 1, 2)
+
+
             flow = cv.calcOpticalFlowFarneback(
                 prvs, next, None, 0.5, 3, 15, 3, 5, 1.2, 0)
             mag, ang = cv.cartToPolar(flow[..., 0], flow[..., 1])
@@ -123,27 +185,23 @@ for filename in listdir("E:/Image Tracking/videos/"):
                     x, y, w, h = cv.boundingRect(c)
                     cut_image = frame2[y:y+h, x:x+w]
                     cut_image1 = cv.cvtColor(cut_image, cv.COLOR_BGR2HSV)
-                    lower = np.array([0, 0, 0])
-                    upper = np.array([41, 255, 175])
-                    mask = cv.inRange(cut_image1, lower, upper)
-                    result = mask
-                    #cv.imshow('Window', mask)
-                    result = cv.bitwise_and(cut_image1, cut_image1, mask=mask)
-                    result = cv.cvtColor(result, cv.COLOR_HSV2RGB)
-                    mean = np.average(result[:, :, 0]).astype(np.uint8)
-                    #cv.imshow('Window', result)
+                    bgr_inv = ~cut_image1
+                    hsv_inv = cv.cvtColor(bgr_inv, cv.COLOR_BGR2HSV);
+                    mask = cv.inRange(hsv_inv, np.array([90 - 10, 70, 50]), np.array([90 + 10, 255, 255]))
+                    final = cv.bitwise_and(frame2, frame2, mask=mask)
+                    mean = np.average(final[:, :, 0]).astype(np.uint8)
                     if mean != 0:
                         cv.rectangle(frame2, (x, y), (x+w, y+h), (0, 255, 0), 2)
                         centers.append((x, y))
                         goodcontours.append(c)
-            #frame4 = cv.COLOR_BGR2HSV(frame2)
-            #cv.imshow('Window', masked)
+                    # cv.rectangle(frame2, (x, y), (x+w, y+h), (0, 255, 0), 2)
+                    # centers.append((x, y))
+                    # goodcontours.append(c)
             cv.drawContours(frame2, goodcontours, -1, (0, 255, 0), 3)
             cv.imshow('Window', frame2)
-            # dense_flow = cv.addWeighted(frame2, 1, bgr, 2, 0)
-            # cv.imshow('Window', dense_flow)
+
             k = cv.waitKey(1) & 0xff
-            prvs = next
+            prvs = next.copy()
         normalizedcenters = []   
         origin = centers[0]
         for c in centers:
